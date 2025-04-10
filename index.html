@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Employee Ticket Distribution</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 10px;
+      background: #f5f5f5;
+    }
+
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+
+    .employee {
+        display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: 15px 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .employee-name {
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .ticket-count {
+      margin: 0 10px;
+      font-size: 16px;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    button {
+      padding: 5px 10px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .assign-btn {
+      background-color: #4caf50;
+      color: white;
+    }
+
+    .reset-btn {
+      background-color: #f44336;
+      color: white;
+      margin-top: 20px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .login-modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .login-box {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+
+    .login-box input {
+      display: block;
+      margin: 10px 0;
+      padding: 8px;
+      width: 100%;
+    }
+
+    .login-box button {
+      background-color: #2196f3;
+      color: white;
+    }
+    .employee-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+  max-width: 1300px;
+  margin: 30px auto;
+}
+
+    .error {
+      color: red;
+      font-size: 14px;
+    }
+
+    .decrease-btn {
+  background-color: #ff9800;
+  color: white;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-left: 8px;
+}
+  </style>
+</head>
+<body>
+  <h1>Employee Ticket Distribution</h1>
+
+  <div id="employeeList"></div>
+
+  <button class="reset-btn" onclick="showLogin()">Reset Tickets (Admin Only)</button>
+
+  <div class="login-modal" id="loginModal">
+    <div class="login-box">
+      <h3>Admin Login</h3>
+      <input type="text" id="adminUser" placeholder="Username">
+      <input type="password" id="adminPass" placeholder="Password">
+      <div class="error" id="loginError"></div>
+      <button onclick="handleLogin()">Login</button>
+      <button onclick="hideLogin()" style="margin-top: 10px; background-color: #999; color: white;">Close</button>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+  <script>
+    // TODO: Replace with your Firebase config
+    const firebaseConfig = {
+        apiKey: "AIzaSyBPVVZQq9KLXNBYXzpbv4Bu7HUQ_wgN3J8",
+    authDomain: "ticketdistro-211db.firebaseapp.com",
+    databaseURL: "https://ticketdistro-211db-default-rtdb.firebaseio.com",
+    projectId: "ticketdistro-211db",
+    storageBucket: "ticketdistro-211db.firebasestorage.app",
+    messagingSenderId: "18027535020",
+    appId: "1:18027535020:web:3c5e238b872ded7f451d09",
+    measurementId: "G-PV0T8LPK55"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const employees = ["Prasad", "Izhar", "Vishakha", "Disha","Poojitha", "Saranya", "Neved","Manish", "Jyoti", "Vijay",
+        "Harika", "Shivani", "Samiksha","Kavya"
+    ];
+    const employeeList = document.getElementById("employeeList");
+
+    function renderEmployees(snapshot) {
+  employeeList.innerHTML = "";
+  const data = snapshot.val() || {};
+
+  const sortedEmployees = employees
+    .map(name => ({
+      name,
+      count: (data[name] !== undefined && data[name] !== null) ? data[name] : 0
+    }))
+    .sort((a, b) => b.count - a.count); // Sort by count DESC
+
+  sortedEmployees.forEach(({ name, count }) => {
+    const div = document.createElement("div");
+    div.className = "employee";
+    div.innerHTML = `
+      <div class="employee-name">${name}</div>
+      <div class="ticket-count">Tickets: <span id="count-${name}">${count}</span></div>
+      <div class="buttons">
+        <button class="assign-btn" onclick="assignTicket('${name}')">Assign Ticket</button>
+        <button class="decrease-btn" onclick="decreaseTicket('${name}')">Decrease</button>
+      </div>
+    `;
+    employeeList.appendChild(div);
+  });
+}
+
+    function assignTicket(name) {
+      const ref = db.ref("tickets/" + name);
+      ref.transaction(current => (current || 0) + 1);
+    }
+    function decreaseTicket(name) {
+  const ref = db.ref("tickets/" + name);
+  ref.transaction(current => {
+    if (!current || current <= 0) return 0; // Don’t go below 0
+    return current - 1;
+  });
+}
+
+    function resetTickets() {
+      const updates = {};
+      employees.forEach(name => updates[`tickets/${name}`] = 0);
+      db.ref().update(updates);
+      hideLogin();
+    }
+
+    function showLogin() {
+      document.getElementById("loginModal").style.display = "flex";
+    }
+
+    function hideLogin() {
+      document.getElementById("loginModal").style.display = "none";
+      document.getElementById("loginError").innerText = "";
+      document.getElementById("adminUser").value = "";
+      document.getElementById("adminPass").value = "";
+      
+    }
+
+    function handleLogin() {
+      const user = document.getElementById("adminUser").value;
+      const pass = document.getElementById("adminPass").value;
+      if (user === "admin" && pass === "password") {
+        resetTickets();
+      } else {
+        document.getElementById("loginError").innerText = "Invalid credentials";
+      }
+    }
+    window.addEventListener("click", function(event) {
+  const modal = document.getElementById("loginModal");
+  if (event.target === modal) {
+    hideLogin();
+  }
+});
+
+    db.ref("tickets").on("value", renderEmployees);
+  </script>
+</body>
+</html>
